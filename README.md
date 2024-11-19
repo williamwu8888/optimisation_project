@@ -1,7 +1,7 @@
-# Dimensionnement de stockage embarqué dans un tramway
+# Dimensionnement de stockage embarqué dans un tramway
 
 ## Table des Matières
-- [Objectifs du projet](#objectifs)
+- [Objectifs du projet](#objectifs-du-projet)
 - [Présentation du système de tramway étudié](#presentation-du-systeme-de-tramway-etudie)
 - [Réalisation du projet](#realisation-du-projet)
 
@@ -10,7 +10,7 @@
 Lors de ce projet d'optimisation, nous essaierons de :
 - Mettre en œuvre une démarche d’optimisation pour la conception d’un système,
 - Comprendre le principe de l’alimentation électrique des tramways,
-- Découvrir l’optimisation multi-critères et le concept d’optimalité au  sens de Pareto,
+- Découvrir l’optimisation multi-critères et le concept d’optimalité au sens de Pareto,
 - Et mettre en œuvre l’algorithme génétique `NSGA-2`. 
 
 ## Présentation du système de tramway étudié
@@ -22,4 +22,3 @@ Ce projet porte sur l’étude en simulation d’une ligne de tramway très simp
 ### 1. Mise en place du modèle de système
 
 - Ajout d'une simulation d'une mise en mouvement d'un train sans batterie, puis avec batterie.
-
