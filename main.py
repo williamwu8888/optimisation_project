@@ -48,14 +48,6 @@ def tension_train(P_train, R_eq):
     V2 = (V_s - np.sqrt(delta)) / 2
     return max(V1, V2)
 
-def charger_donnees_train(fichier):
-    # Exemple pour charger un fichier .m MATLAB
-    from scipy.io import loadmat
-    data = loadmat(fichier)
-    temps = data['t']  # Tableau des temps
-    position = data['x']  # Tableau des positions
-    return temps.flatten(), position.flatten()
-
 ### Train en déplacement
 
 def charger_donnees_train(fichier):
