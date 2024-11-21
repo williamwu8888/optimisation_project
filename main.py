@@ -13,6 +13,44 @@ M = 70_000          # Masse du train (kg)
 P_bord = 35_000     # Consommation électrique à bord (W)
 rendement = 0.8     # Rendement global
 
+### Création d'une classe pour optimiser les tracés:
+
+class Data:
+    def __init__(self, temps, valeurs, nom, unite, couleur="blue"):
+        """
+        Initialisation de l'objet Data.
+
+        Arguments :
+        - temps (array) : Les valeurs de temps associées.
+        - valeurs (array) : Les valeurs à tracer.
+        - nom (str) : Le nom des données (ex. 'Vitesse', 'Position').
+        - unite (str) : L'unité des données (ex. 'm/s', 'V').
+        - couleur (str) : Couleur de la courbe (par défaut : "blue").
+        """
+        self.temps = temps
+        self.valeurs = valeurs
+        self.nom = nom
+        self.unite = unite
+        self.couleur = couleur
+
+    def tracer(self):
+        """
+        Trace les données avec un titre et des étiquettes adaptés.
+        """
+        plt.plot(self.temps, self.valeurs, label=f"{self.nom} ({self.unite})", color=self.couleur)
+        plt.xlabel("Temps (s)")
+        plt.ylabel(f"{self.nom} ({self.unite})")
+        plt.title(f"Évolution de {self.nom} au cours du temps")
+        plt.legend()
+        plt.grid()
+
+    def afficher(self):
+        """
+        Affiche directement le tracé des données.
+        """
+        self.tracer()
+        plt.show()
+
 ### Les fonctions de calcul
 
 def calcul_resistance(distance, rho):
@@ -202,89 +240,29 @@ def simulation_avec_batterie(temps, positions, longueur_ligne, capacite_batterie
 
 ### Affichage des résultats
 
-def tracer_position(temps, positions, label):
-    temps = temps[:len(positions)]
-    plt.plot(temps, positions, label=label)
-    plt.xlabel("Temps (s)")
-    plt.ylabel("Position (m)")
-    plt.title("Évolution de la position du train au cours du temps")
-    plt.legend()
-    plt.grid()
-
-def tracer_resistance(temps, resistances, label):
-    temps = temps[:len(resistances)]  
-    plt.plot(temps, resistances, label=label)
-    plt.xlabel("Temps (s)")
-    plt.ylabel("Résistance équivalente (Ohms)")
-    plt.title("Évolution de la résistance équivalente au cours du temps")
-    plt.legend()
-    plt.grid()
-
-def tracer_vitesse(temps, vitesses, label):
-    temps = temps[:len(vitesses)]  
-    plt.plot(temps, vitesses, label=label)
-    plt.xlabel("Temps (s)")
-    plt.ylabel("Vitesse (km/h)")
-    plt.title("Évolution de la vitesse au cours du temps")
-    plt.legend()
-    plt.grid()
-
-def tracer_acceleration(temps, accelerations, label):
-    temps = temps[:len(accelerations)]  
-    plt.plot(temps, accelerations, label=label)
-    plt.xlabel("Temps (s)")
-    plt.ylabel("Accélération (m/s²)")
-    plt.title("Évolution de l'accélération au cours du temps")
-    plt.legend()
-    plt.grid()
-
-def tracer_tension(temps, tensions, label):
-    temps = temps[:len(tensions)]  
-    plt.plot(temps, tensions, label=label)
-    plt.xlabel("Temps (s)")
-    plt.ylabel("Tension aux bornes du train (V)")
-    plt.title("Évolution de la tension au cours du temps")
-    plt.legend()
-    plt.grid()
-
-def tracer_puissance(temps, puissances, label):
-    temps = temps[:len(puissances)]  
-    plt.plot(temps, puissances, label=label)
-    plt.xlabel("Temps (s)")
-    plt.ylabel("Puissance (MW)")
-    plt.title("Évolution de la puissance au cours du temps")
-    plt.legend()
-    plt.grid()
-
-def tracer_courant(temps, courants, label):
-    temps = temps[:len(courants)]  
-    plt.plot(temps, courants, label=label)
-    plt.xlabel("Temps (s)")
-    plt.ylabel("Courant (A)")
-    plt.title("Évolution du courant au cours du temps")
-    plt.legend()
-    plt.grid()
-
-def tout_tracer(temps, positions, vitesses, accelerations, puissances, tensions, courants, resistances_eq):
-    plt.figure(figsize=(10, 12))
+def plot_all(temps, positions, vitesses, accelerations, puissances, tensions, courants, resistances_eq):
+    """
+    Trace tous les graphiques pour les données fournies.
+    """
+    plt.figure(figsize=(10, 15))
     plt.subplots_adjust(hspace=0.7)
-    plt.subplot(4, 1, 1)
-    tracer_position(temps, positions, label="Position")
-    plt.subplot(4, 1, 2)
-    tracer_vitesse(temps, vitesses, label="Vitesse")
-    plt.subplot(4, 1, 3)
-    tracer_acceleration(temps, accelerations, label="Accélération")
-    plt.subplot(4, 1, 4)
-    tracer_puissance(temps, puissances, label="Puissance mécanique")
 
-    plt.figure(figsize=(10, 12))
-    plt.subplots_adjust(hspace=0.7)
-    plt.subplot(3, 1, 1)
-    tracer_tension(temps, tensions, label="Tension")
-    plt.subplot(3, 1, 2)
-    tracer_courant(temps, courants, label="Courant")
-    plt.subplot(3, 1, 3)
-    tracer_resistance(temps, resistances_eq, label="Résistance")
+    # Création des objets Data pour chaque série de données
+    donnees = [
+        Data(temps[:len(positions)], positions, "Position", "m", couleur="green"),
+        Data(temps[:len(vitesses)], vitesses, "Vitesse", "km/h", couleur="blue"),
+        Data(temps[:len(accelerations)], accelerations, "Accélération", "m/s²", couleur="purple"),
+        Data(temps[:len(puissances)], puissances, "Puissance", "MW", couleur="orange"),
+        Data(temps[:len(tensions)], tensions, "Tension", "V", couleur="red"),
+        Data(temps[:len(courants)], courants, "Courant", "A", couleur="brown"),
+        Data(temps[:len(resistances_eq)], resistances_eq, "Résistance équivalente", "Ω", couleur="cyan")
+    ]
+
+    # Boucle pour tracer chaque série de données
+    for i, data in enumerate(donnees):
+        plt.subplot(4, 2, i + 1)
+        data.tracer()
+
     plt.show()
 
 ### Programme main
@@ -323,7 +301,7 @@ def main():
         return
     
     print("Affichage des résultats...")
-    tout_tracer(temps, positions, vitesses_sb, accelerations_sb, puissances_sb, tensions_sb, courants_sb, resistances_eq_sb)
+    plot_all(temps, positions, vitesses_sb, accelerations_sb, puissances_sb, tensions_sb, courants_sb, resistances_eq_sb)
 
     # 4. Simulation avec batterie
     print("Simulation avec batterie...")
@@ -334,7 +312,8 @@ def main():
         return
     
     print("Affichage des résultats...")
-    tout_tracer(temps, positions, vitesses_ab, accelerations_ab, puissances_ab, tensions_ab, courants_ab, resistances_eq_ab)
+    plot_all(temps, positions, vitesses_ab, accelerations_ab, puissances_ab, tensions_ab, courants_ab, resistances_eq_ab)
 
 if __name__ == "__main__":
     main()
+    
