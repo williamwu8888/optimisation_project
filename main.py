@@ -1,6 +1,5 @@
-import math
 import numpy as np
-
+import random
 import matplotlib.pyplot as plt
 
 ### Données initiales
@@ -272,6 +271,72 @@ def plot_all(temps, positions, vitesses, accelerations, puissances, tensions, co
 # from simulation import simulation_sans_batterie, simulation_avec_batterie
 # from utils import charger_donnees_train, tracer_resultats
 
+# Paramètres du système (ajustés pour plus de diversité)
+max_battery_capacity = 1000  # Capacité maximale de la batterie en Wh
+max_voltage_drop = 290       # Chute de tension maximale en volts (par rapport à la tension nominale de 500V)
+n_samples = 20000            # Augmentation du nombre d'échantillons pour obtenir plus de diversité
+
+# Fonction pour simuler la capacité de la batterie et la chute de tension
+def simulate_system(battery_capacity, voltage_drop_factor):
+    # Simulation de la capacité de la batterie (en Wh)
+    battery_energy = battery_capacity * np.random.uniform(0.6, 1.0)  # L'énergie varie entre 60% et 100% de la capacité maximale
+    
+    # Simulation de la chute de tension (en volts), en s'assurant que la chute ne dépasse pas max_voltage_drop
+    voltage_drop = max_voltage_drop * np.random.uniform(0.0, 1.0) * voltage_drop_factor  # Facteur de variation de la chute
+    
+    return battery_energy, voltage_drop
+
+# Échantillonnage aléatoire dans l'espace des décisions avec des plages plus larges
+battery_capacities = np.random.uniform(100, max_battery_capacity, n_samples)  # Capacité de la batterie entre 100Wh et la capacité maximale
+voltage_drop_factors = np.random.uniform(0.5, 1.0, n_samples)  # Facteur de chute de tension élargi entre 0.5 et 1.0
+
+# Calcul des critères pour chaque échantillon
+results = []
+for i in range(n_samples):
+    battery_energy, voltage_drop = simulate_system(battery_capacities[i], voltage_drop_factors[i])
+    results.append([battery_energy, voltage_drop])
+
+results = np.array(results)
+
+# Fonction pour identifier les solutions non dominées (modifiée pour une domination stricte)
+def non_dominated_sort(results):
+    n = len(results)
+    is_dominated = np.zeros(n, dtype=bool)
+    
+    for i in range(n):
+        for j in range(n):
+            # Modifiée la condition de domination : une solution est dominée si elle est pire sur les deux critères
+            if (results[j, 0] <= results[i, 0] and results[j, 1] <= results[i, 1]) and (i != j):
+                is_dominated[i] = True
+                break
+    
+    return results[~is_dominated]
+
+# Identification des solutions non dominées
+non_dominated_solutions = non_dominated_sort(results)
+
+# Trier les solutions non dominées pour créer la ligne de Pareto (en fonction de la capacité de la batterie, puis de la chute de tension)
+sorted_non_dominated = non_dominated_solutions[np.argsort(non_dominated_solutions[:, 0])]
+
+# Affichage des résultats
+plt.figure(figsize=(10, 6))
+plt.scatter(results[:, 0], results[:, 1], color='blue', alpha=0.3, label='Solutions dominées')
+plt.scatter(non_dominated_solutions[:, 0], non_dominated_solutions[:, 1], color='red', label='Solutions non dominées')
+
+# Tracer la ligne de Pareto en reliant les solutions non dominées triées
+plt.plot(sorted_non_dominated[:, 0], sorted_non_dominated[:, 1], color='black', lw=2, label='Ligne de Pareto')
+
+plt.xlabel('Capacité de la batterie (Wh)')
+plt.ylabel('Chute de tension maximale (V)')
+plt.title('Solutions Monte-Carlo : Chute de tension maximale vs Capacité de la batterie')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# Afficher les solutions non dominées
+print("Solutions non dominées (Capacité de la batterie (Wh), Chute de tension maximale (V)): ")
+print(non_dominated_solutions)
+
 def main():
     # 1. Chargement des données
     fichier_donnees = "marche.txt"
@@ -301,6 +366,8 @@ def main():
         return
     
     print("Affichage des résultats...")
+
+    # Plot the Monte-Carlo results alongside the simulation results
     plot_all(temps, positions, vitesses_sb, accelerations_sb, puissances_sb, tensions_sb, courants_sb, resistances_eq_sb)
 
     # 4. Simulation avec batterie
@@ -308,7 +375,7 @@ def main():
     try:
         resistances_eq_ab, vitesses_ab, accelerations_ab, tensions_ab, puissances_ab, courants_ab = simulation_avec_batterie(temps, positions, longueur_ligne, capacite_batterie)
     except Exception as e:
-        print(f"Erreur pendant la simulation sans batterie : {e}")
+        print(f"Erreur pendant la simulation avec batterie : {e}")
         return
     
     print("Affichage des résultats...")
