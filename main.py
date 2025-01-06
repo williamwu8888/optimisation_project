@@ -287,6 +287,7 @@ def simulate_system(battery_capacity, voltage_drop_factor):
 # Fonction pour identifier les solutions non dominées
 def non_dominated_sort(results):
     """Identifie les solutions non dominées."""
+    results = np.array(results)
     n = len(results)
     is_dominated = np.zeros(n, dtype=bool)
 
@@ -378,10 +379,36 @@ def nsga2(temps, positions, longueur_ligne, generations=100, population_size=50)
         if generation % 10 == 0:
             print(f"Génération {generation}/{generations}")
 
-    # Retourner la meilleure solution de la dernière génération
+    # Évaluation finale de la population
     final_objectives = [evaluation(individu, temps, positions, longueur_ligne) for individu in population]
+
+    # Sélection des solutions non dominées
+    non_dominated_solutions = non_dominated_sort(final_objectives)
+
+    # Retourner les solutions non dominées et la meilleure solution
     best_solution = min(zip(population, final_objectives), key=lambda x: (x[1][0], x[1][1]))  # Minimiser chute tension et capacité
-    return best_solution
+    return non_dominated_solutions, best_solution
+
+def visualiser_nsga2(results, best_solution):
+    """Visualise les solutions de NSGA-II et met en évidence la meilleure solution."""
+    solutions = np.array(results)
+    meilleur_individu, meilleurs_objectifs = best_solution
+
+    plt.figure(figsize=(10, 6))
+    # Tracer toutes les solutions non dominées
+    plt.scatter(solutions[:, 0], solutions[:, 1], color='blue', alpha=0.6, label='Solutions non dominées')
+
+    # Mettre en évidence la meilleure solution
+    plt.scatter(meilleurs_objectifs[0], meilleurs_objectifs[1], color='red', label='Meilleure solution', s=100, edgecolors='black')
+
+    # Ajout des labels
+    plt.xlabel("Capacité de la batterie (Wh)")
+    plt.ylabel("Chute de tension totale (V)")
+    plt.title("Solutions non dominées - NSGA-II")
+    plt.legend()
+    plt.grid(True)
+
+    plt.show()
 
 def main():
     # 1. Chargement des données
@@ -471,11 +498,14 @@ def main():
     
     print(f"Algorithme NSGA2 avec {limite_points} points...")
     
-    meilleure_solution = nsga2(temps, positions, longueur_ligne)
+    non_dominated_solutions, best_solution = nsga2(temps, positions, longueur_ligne)
+
+    # Visualisation
+    print("Affichage des résultats...")
+    visualiser_nsga2(non_dominated_solutions, best_solution)
 
     # Affichage de la meilleure solution
-    print("Affichage des résultats...")
-    print(f"Meilleure solution : Capacité de la batterie : {meilleure_solution[0]} Wh, Chute de tension : {meilleure_solution[1][0]}")
+    print(f"Meilleure solution :\n Capacité de la batterie : {best_solution[0]} Wh, Chute de tension : {best_solution[1][0]}")
 
 if __name__ == "__main__":
     main()
