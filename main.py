@@ -1,6 +1,6 @@
 import numpy as np
-import random
 import matplotlib.pyplot as plt
+import random
 
 ### Données initiales
 
@@ -15,7 +15,7 @@ rendement = 0.8     # Rendement global
 ### Création d'une classe pour optimiser les tracés:
 
 class Data:
-    def __init__(self, temps, valeurs, nom, unite, couleur="blue"):
+    def __init__(self, temps, valeurs, nom, unite, couleur):
         """
         Initialisation de l'objet Data.
 
@@ -239,11 +239,12 @@ def simulation_avec_batterie(temps, positions, longueur_ligne, capacite_batterie
 
 ### Affichage des résultats
 
-def plot_all(temps, positions, vitesses, accelerations, puissances, tensions, courants, resistances_eq):
+def plot_all(fig_name, temps, positions, vitesses, accelerations, puissances, tensions, courants, resistances_eq):
     """
     Trace tous les graphiques pour les données fournies.
     """
-    plt.figure(figsize=(10, 15))
+    plt.figure(num=fig_name, figsize=(10, 15))
+    plt.suptitle(fig_name)
     plt.subplots_adjust(hspace=0.7)
 
     # Création des objets Data pour chaque série de données
@@ -278,64 +279,109 @@ n_samples = 20000            # Augmentation du nombre d'échantillons pour obten
 
 # Fonction pour simuler la capacité de la batterie et la chute de tension
 def simulate_system(battery_capacity, voltage_drop_factor):
-    # Simulation de la capacité de la batterie (en Wh)
-    battery_energy = battery_capacity * np.random.uniform(0.6, 1.0)  # L'énergie varie entre 60% et 100% de la capacité maximale
-    
-    # Simulation de la chute de tension (en volts), en s'assurant que la chute ne dépasse pas max_voltage_drop
-    voltage_drop = max_voltage_drop * np.random.uniform(0.0, 1.0) * voltage_drop_factor  # Facteur de variation de la chute
-    
+    """Simule la capacité de la batterie et la chute de tension."""
+    battery_energy = battery_capacity * np.random.uniform(0.6, 1.0)
+    voltage_drop = max_voltage_drop * np.random.uniform(0.0, 1.0) * voltage_drop_factor
     return battery_energy, voltage_drop
 
-# Échantillonnage aléatoire dans l'espace des décisions avec des plages plus larges
-battery_capacities = np.random.uniform(100, max_battery_capacity, n_samples)  # Capacité de la batterie entre 100Wh et la capacité maximale
-voltage_drop_factors = np.random.uniform(0.5, 1.0, n_samples)  # Facteur de chute de tension élargi entre 0.5 et 1.0
-
-# Calcul des critères pour chaque échantillon
-results = []
-for i in range(n_samples):
-    battery_energy, voltage_drop = simulate_system(battery_capacities[i], voltage_drop_factors[i])
-    results.append([battery_energy, voltage_drop])
-
-results = np.array(results)
-
-# Fonction pour identifier les solutions non dominées (modifiée pour une domination stricte)
+# Fonction pour identifier les solutions non dominées
 def non_dominated_sort(results):
+    """Identifie les solutions non dominées."""
     n = len(results)
     is_dominated = np.zeros(n, dtype=bool)
-    
+
     for i in range(n):
         for j in range(n):
-            # Modifiée la condition de domination : une solution est dominée si elle est pire sur les deux critères
             if (results[j, 0] <= results[i, 0] and results[j, 1] <= results[i, 1]) and (i != j):
                 is_dominated[i] = True
                 break
-    
+
     return results[~is_dominated]
 
-# Identification des solutions non dominées
-non_dominated_solutions = non_dominated_sort(results)
+# Algorithme NSGA-II
 
-# Trier les solutions non dominées pour créer la ligne de Pareto (en fonction de la capacité de la batterie, puis de la chute de tension)
-sorted_non_dominated = non_dominated_solutions[np.argsort(non_dominated_solutions[:, 0])]
+# Fonction d'évaluation : Chute de tension et capacité de batterie
+def evaluation(individu, temps, positions, longueur_ligne):
+    """
+    Évalue un individu en calculant deux objectifs : 
+    - la chute de tension totale (à minimiser)
+    - la capacité de la batterie (à minimiser).
 
-# Affichage des résultats
-plt.figure(figsize=(10, 6))
-plt.scatter(results[:, 0], results[:, 1], color='blue', alpha=0.3, label='Solutions dominées')
-plt.scatter(non_dominated_solutions[:, 0], non_dominated_solutions[:, 1], color='red', label='Solutions non dominées')
+    Arguments :
+        individu (list) : Individu contenant la capacité de la batterie en Wh.
+        temps (array) : Tableau des temps simulés.
+        positions (array) : Tableau des positions simulées.
+        longueur_ligne (float) : Longueur totale de la ligne.
 
-# Tracer la ligne de Pareto en reliant les solutions non dominées triées
-plt.plot(sorted_non_dominated[:, 0], sorted_non_dominated[:, 1], color='black', lw=2, label='Ligne de Pareto')
+    Retourne :
+        tuple : (objectif_1, objectif_2) avec la chute de tension et la capacité de la batterie.
+    """
+    capacite_batterie = individu[0]
+    resistances_eq, vitesses, accelerations, tensions, puissances, courants = simulation_avec_batterie(
+        temps, positions, longueur_ligne, capacite_batterie * 3600  # Conversion Wh -> J
+    )
+    
+    chute_tension = np.sum([V_s - V_train for V_train in tensions])  # Somme des différences
+    objectif_1 = chute_tension
+    objectif_2 = capacite_batterie
 
-plt.xlabel('Capacité de la batterie (Wh)')
-plt.ylabel('Chute de tension maximale (V)')
-plt.title('Solutions Monte-Carlo : Chute de tension maximale vs Capacité de la batterie')
-plt.legend()
-plt.grid(True)
-plt.show()
+    return objectif_1, objectif_2
 
-# Afficher les solutions non dominées
-print("Solutions non dominées (Capacité de la batterie (Wh), Chute de tension maximale (V)): ")
-print(non_dominated_solutions)
+# Sélection des individus
+def selection(population, objectives):
+    """Trie les individus en fonction de leurs objectifs pour sélectionner les meilleurs."""
+    sorted_population = sorted(zip(population, objectives), key=lambda x: (x[1][0], x[1][1]))
+    return [individual for individual, _ in sorted_population]
+
+# Croisement entre deux individus
+def croisement(individu1, individu2):
+    """Effectue un croisement entre deux individus."""
+    point_croisement = random.uniform(0, 1)
+    if random.random() < point_croisement:
+        nouvelle_batterie = (individu1[0] + individu2[0]) / 2
+    else:
+        nouvelle_batterie = individu1[0]
+    return [nouvelle_batterie]
+
+# Mutation d'un individu
+def mutation(individu):
+    """Applique une mutation à un individu."""
+    if random.random() < 0.1:  # Probabilité de mutation de 10%
+        individu[0] += random.uniform(-0.1, 0.1)  # Perturbe légèrement la capacité
+    return individu
+
+def nsga2(temps, positions, longueur_ligne, generations=100, population_size=50):
+    """Implémente l'algorithme NSGA-II pour optimiser deux objectifs."""
+    # Initialisation de la population
+    population = [[random.uniform(1, 1000)] for _ in range(population_size)]  # Capacité de batterie entre 1 et 1000 Wh
+
+    for generation in range(generations):
+        # Évaluation de la population
+        objectives = [evaluation(individu, temps, positions, longueur_ligne) for individu in population]
+
+        # Sélection des meilleurs individus par dominance
+        population = selection(population, objectives)
+
+        # Création de la nouvelle population
+        nouvelle_population = []
+        while len(nouvelle_population) < population_size:
+            # Sélection de deux parents au hasard pour croisement
+            parent1, parent2 = random.sample(population, 2)
+            enfant = croisement(parent1, parent2)
+            enfant = mutation(enfant)  # Mutation
+            nouvelle_population.append(enfant)
+
+        # Mise à jour de la population
+        population = nouvelle_population
+
+        # Affichage de l'avancement
+        if generation % 10 == 0:
+            print(f"Génération {generation}/{generations}")
+
+    # Retourner la meilleure solution de la dernière génération
+    final_objectives = [evaluation(individu, temps, positions, longueur_ligne) for individu in population]
+    best_solution = min(zip(population, final_objectives), key=lambda x: (x[1][0], x[1][1]))  # Minimiser chute tension et capacité
+    return best_solution
 
 def main():
     # 1. Chargement des données
@@ -366,9 +412,7 @@ def main():
         return
     
     print("Affichage des résultats...")
-
-    # Plot the Monte-Carlo results alongside the simulation results
-    plot_all(temps, positions, vitesses_sb, accelerations_sb, puissances_sb, tensions_sb, courants_sb, resistances_eq_sb)
+    plot_all("Simulation sans batterie", temps, positions, vitesses_sb, accelerations_sb, puissances_sb, tensions_sb, courants_sb, resistances_eq_sb)
 
     # 4. Simulation avec batterie
     print("Simulation avec batterie...")
@@ -379,7 +423,59 @@ def main():
         return
     
     print("Affichage des résultats...")
-    plot_all(temps, positions, vitesses_ab, accelerations_ab, puissances_ab, tensions_ab, courants_ab, resistances_eq_ab)
+    plot_all("Simulation avec batterie", temps, positions, vitesses_ab, accelerations_ab, puissances_ab, tensions_ab, courants_ab, resistances_eq_ab)
+
+    # 5. Simulations de Monte-Carlo
+    print("Simulations de Monte-Carlo...")
+    try:
+        max_battery_capacity = 1000
+        max_voltage_drop = 290
+        n_samples = 20000
+
+        battery_capacities = np.random.uniform(100, max_battery_capacity, n_samples)
+        voltage_drop_factors = np.random.uniform(0.5, 1.0, n_samples)
+
+        results = []
+        for i in range(n_samples):
+            battery_energy, voltage_drop = simulate_system(battery_capacities[i], voltage_drop_factors[i])
+            results.append([battery_energy, voltage_drop])
+
+        results = np.array(results)
+        non_dominated_solutions = non_dominated_sort(results)
+
+        sorted_non_dominated = non_dominated_solutions[np.argsort(non_dominated_solutions[:, 0])]
+
+        print("Solutions non dominées (Capacité de la batterie (Wh), Chute de tension maximale (V)): ")
+        print(non_dominated_solutions)
+        print("Affichage des résultats...")
+
+        plt.figure(num="Simulations de Monte-Carlo", figsize=(10, 6))
+        plt.scatter(results[:, 0], results[:, 1], color='blue', alpha=0.3, label='Solutions dominées')
+        plt.scatter(non_dominated_solutions[:, 0], non_dominated_solutions[:, 1], color='red', label='Solutions non dominées')
+        plt.plot(sorted_non_dominated[:, 0], sorted_non_dominated[:, 1], color='black', lw=2, label='Ligne de Pareto')
+        plt.xlabel('Capacité de la batterie (Wh)')
+        plt.ylabel('Chute de tension maximale (V)')
+        plt.title('Solutions Monte-Carlo : Chute de tension maximale vs Capacité de la batterie')
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+
+    except Exception as e:
+        print(f"Erreur pendant la simulation : {e}")
+
+    # 6. Algorithme NSGA2
+    limite_points = 150
+    temps = temps[:limite_points]
+    positions = positions[:limite_points]
+    longueur_ligne = max(positions)
+    
+    print(f"Algorithme NSGA2 avec {limite_points} points...")
+    
+    meilleure_solution = nsga2(temps, positions, longueur_ligne)
+
+    # Affichage de la meilleure solution
+    print("Affichage des résultats...")
+    print(f"Meilleure solution : Capacité de la batterie : {meilleure_solution[0]} Wh, Chute de tension : {meilleure_solution[1][0]}")
 
 if __name__ == "__main__":
     main()
